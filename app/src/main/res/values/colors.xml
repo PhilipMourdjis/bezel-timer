@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="start_color">#00ff66</color>
+    <color name="stop_color">#ff6600</color>
+    <color name="progress_color">#00eeff</color>
+    <color name="background_color">#000000</color>
+</resources>
