@@ -1,4 +1,4 @@
-package com.example.bezeltimer;
+package com.moregs.bezeltimer;
 
 import android.content.Context;
 import android.content.res.TypedArray;
