@@ -1,6 +1,7 @@
 package com.moregs.bezeltimer;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.media.AudioDeviceInfo;
 import android.media.MediaPlayer;
 import android.os.Bundle;
@@ -30,13 +31,15 @@ public class MainActivity extends FragmentActivity
         implements AmbientModeSupport.AmbientCallbackProvider {
     private ActivityMainBinding binding;
     private AmbientModeSupport.AmbientController ambientController;
+    private SharedPreferences settings;
     Executor mainExecutor;
     private CountDownTimer timer;
     private ImageButton start_button;
     private ImageButton stop_button;
     private Button mode_button;
-    private State state;
+    private State state = State.Ready;
     private boolean is_ambient = false;
+    private boolean done_drawn = false;
     private TextView time_re;
     private RadialProgress progress_bar;
     private Integer start_color;
@@ -45,7 +48,7 @@ public class MainActivity extends FragmentActivity
     private boolean mode_seconds = false;
     private final long one_minute = 60000;
     private final long one_second = 1000;
-    private long selected_time = one_minute;
+    private long selected_time;
     private long remaining_time;
 
     /* AMBIENT MODE SECTION */
@@ -92,8 +95,10 @@ public class MainActivity extends FragmentActivity
                     break;
                 case Done:
                     progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.stop_color));
+                    state = State.Ready;
                     break;
             }
+            time_re.setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -101,8 +106,17 @@ public class MainActivity extends FragmentActivity
             // Update the content
             super.onUpdateAmbient();
             Log.i("Ambient", "Update");
+            if (state == State.Done) {
+                time_re.setVisibility(View.GONE);
+                if (done_drawn) {
+                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.black));
+                    done_drawn = false;
+                } else {
+                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.stop_color));
+                    done_drawn = true;
+                }
+            }
         }
-
     }
 
     /* PHYSICAL CONTROLS */
@@ -158,6 +172,7 @@ public class MainActivity extends FragmentActivity
                     public void run() {
                         progress_bar.setProgress_color(stop_color);
                         sound_the_alarm();
+                        state = State.Done;
                         resetTimer();
                     }
                 });
@@ -170,7 +185,7 @@ public class MainActivity extends FragmentActivity
         Log.i("Main", "Sound the alarm");
         AudioOutput audioOutput = new AudioOutput(getApplicationContext());
         if (audioOutput.audioOutputAvailable(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)) {
-            MediaPlayer mediaPlayer = MediaPlayer.create(this, R.raw.alarm);
+            MediaPlayer mediaPlayer = MediaPlayer.create(this, R.raw.alarm2);
 
             try {
                 mediaPlayer.setPreferredDevice(audioOutput.get_internal_speaker());
@@ -229,6 +244,10 @@ public class MainActivity extends FragmentActivity
             progress_bar.setProgress_max(selected_time);
             progress_bar.setProgress_color(start_color);
             timerStart(selected_time);
+
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putLong("last_selected_time", selected_time);
+            editor.apply();
         }
     }
 
@@ -247,14 +266,12 @@ public class MainActivity extends FragmentActivity
         }
 
         float end_angle = 0.0f;
-        if (is_ambient) {
-            end_angle = 360.0f - ((selected_time - remaining_time) * 360.0f / selected_time);
-        }
+        end_angle = 360.0f - ((selected_time - remaining_time) * 360.0f / selected_time);
+        end_angle = 45.0f * (float) Math.sin(Math.toRadians(end_angle));
         time_re.setRotation(end_angle);
     }
 
     protected void resetTimer() {
-        state = State.Ready;
         progress_bar.setProgress(selected_time);
         stop_button.setVisibility(View.GONE);
         start_button.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
@@ -271,6 +288,8 @@ public class MainActivity extends FragmentActivity
         mainExecutor = ContextCompat.getMainExecutor(this);
         ambientController = AmbientModeSupport.attach(this);
         is_ambient = ambientController.isAmbient();
+        settings = this.getPreferences(Context.MODE_PRIVATE);
+        selected_time = settings.getLong("last_selected_time", one_minute);
 
         time_re = findViewById(R.id.time_re);
         start_button = findViewById(R.id.start_button);
@@ -298,6 +317,7 @@ public class MainActivity extends FragmentActivity
                 // we cancel the countdown timer execution when user click on the stop button
                 timer.cancel();
                 resetTimer();
+                state = State.Ready;
                 progress_bar.setProgress_color(progress_color);
             }
         });

@@ -27,7 +27,6 @@
         android:textColor="@color/white"
         android:textSize="39sp"
         android:text="00:00:00"
-        android:rotation="0.0"
         app:layout_constraintVertical_bias="0.475"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintEnd_toStartOf="parent"
