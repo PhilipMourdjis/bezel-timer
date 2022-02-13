@@ -315,8 +315,8 @@ public class MainActivity extends FragmentActivity
                 Log.i("Main", "Stop button pressed");
                 // we cancel the countdown timer execution when user click on the stop button
                 timer.cancel();
-                resetTimer();
                 state = State.Ready;
+                resetTimer();
             }
         });
 
