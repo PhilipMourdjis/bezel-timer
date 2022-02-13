@@ -2,6 +2,7 @@ package com.moregs.bezeltimer;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.media.AudioDeviceInfo;
 import android.media.MediaPlayer;
 import android.os.Bundle;
@@ -11,6 +12,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Button;
 
@@ -36,20 +38,19 @@ public class MainActivity extends FragmentActivity
     private CountDownTimer timer;
     private ImageButton start_button;
     private ImageButton stop_button;
-    private Button mode_button;
+    private ImageView warning_sign;
+    private ImageView background;
     private State state = State.Ready;
     private boolean is_ambient = false;
     private boolean done_drawn = false;
     private TextView time_re;
     private RadialProgress progress_bar;
-    private Integer start_color;
-    private Integer stop_color;
-    private Integer progress_color;
     private boolean mode_seconds = false;
     private final long one_minute = 60000;
     private final long one_second = 1000;
     private long selected_time;
     private long remaining_time;
+    private MediaPlayer alarm_player = null;
 
     /* AMBIENT MODE SECTION */
 
@@ -68,8 +69,8 @@ public class MainActivity extends FragmentActivity
             Log.i("Ambient", "Enter");
             start_button.setVisibility(View.GONE);
             stop_button.setVisibility(View.GONE);
-            progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.ambient));
             time_re.setTextColor(ContextCompat.getColor(getApplicationContext(), R.color.ambient));
+            background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), R.color.ambient)));
         }
 
         @Override
@@ -77,24 +78,20 @@ public class MainActivity extends FragmentActivity
             // Handle exiting ambient mode
             super.onExitAmbient();
             is_ambient = false;
+            warning_sign.setVisibility(View.GONE);
 
             Log.i("Ambient", "Exit");
             start_button.setVisibility(View.VISIBLE);
-            time_re.setTextColor(ContextCompat.getColor(getApplicationContext(), R.color.white));
+            time_re.setTextColor(ContextCompat.getColor(getApplicationContext(), android.R.color.white));
+            background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
             switch (state) {
                 case Ready:
-                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.progress_color));
                     break;
                 case Running:
-                    stop_button.setVisibility(View.VISIBLE);
-                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.start_color));
-                    break;
                 case Paused:
                     stop_button.setVisibility(View.VISIBLE);
-                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.progress_color));
                     break;
                 case Done:
-                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.stop_color));
                     state = State.Ready;
                     break;
             }
@@ -109,10 +106,10 @@ public class MainActivity extends FragmentActivity
             if (state == State.Done) {
                 time_re.setVisibility(View.GONE);
                 if (done_drawn) {
-                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.black));
+                    warning_sign.setVisibility(View.GONE);
                     done_drawn = false;
                 } else {
-                    progress_bar.setProgress_color(ContextCompat.getColor(getApplicationContext(), R.color.stop_color));
+                    warning_sign.setVisibility(View.VISIBLE);
                     done_drawn = true;
                 }
             }
@@ -145,7 +142,6 @@ public class MainActivity extends FragmentActivity
                     selected_time += time_delta;
                 }
             }
-            progress_bar.setProgress_color(progress_color);
             updateTimeDisplay(selected_time);
             return true;
         }
@@ -170,8 +166,7 @@ public class MainActivity extends FragmentActivity
                 mainExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
-                        progress_bar.setProgress_color(stop_color);
-                        sound_the_alarm();
+                        alarm_player.start();
                         state = State.Done;
                         resetTimer();
                     }
@@ -181,45 +176,46 @@ public class MainActivity extends FragmentActivity
         timer.start();
     }
 
-    private void sound_the_alarm() {
+    private MediaPlayer prepare_alarm_player(Context context) {
         Log.i("Main", "Sound the alarm");
-        AudioOutput audioOutput = new AudioOutput(getApplicationContext());
+        AudioOutput audioOutput = new AudioOutput(context);
         if (audioOutput.audioOutputAvailable(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)) {
-            MediaPlayer mediaPlayer = MediaPlayer.create(this, R.raw.alarm2);
+            MediaPlayer mediaPlayer = MediaPlayer.create(context, R.raw.alarm2);
 
             try {
                 mediaPlayer.setPreferredDevice(audioOutput.get_internal_speaker());
                 mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                     @Override
                     public void onPrepared(MediaPlayer player) {
-                        Log.i("Main", "Playing");
-                        player.start();
+                        Log.i("mediaPlayer", "Prepared");
                     }
                 });
                 mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                     @Override
                     public void onCompletion(MediaPlayer mediaPlayer) {
-                        Log.i("Main", "Alarm complete");
+                        Log.i("mediaPlayer", "Alarm complete");
                     }
                 });
                 mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
                     @Override
                     public boolean onError(MediaPlayer mediaPlayer, int i, int i1) {
-                        Log.d("Main", "Alarm error: " + i + " : " + i1);
+                        Log.d("mediaPlayer", "Alarm error: " + i + " : " + i1);
                         return false;
                     }
                 });
+                return mediaPlayer;
             } catch (IllegalArgumentException e) {
-                Log.d("Main", "IllegalArgumentException playing alarm: " + e.getMessage());
+                Log.d("mediaPlayer", "IllegalArgumentException playing alarm: " + e.getMessage());
                 e.printStackTrace();
             } catch (SecurityException e) {
-                Log.d("Main", "SecurityException playing alarm: " + e.getMessage());
+                Log.d("mediaPlayer", "SecurityException playing alarm: " + e.getMessage());
                 e.printStackTrace();
             } catch (IllegalStateException e) {
-                Log.d("Main", "IllegalStateException playing alarm: " + e.getMessage());
+                Log.d("mediaPlayer", "IllegalStateException playing alarm: " + e.getMessage());
                 e.printStackTrace();
             }
         }
+        return null;
     }
 
     private void play_pause() {
@@ -228,13 +224,11 @@ public class MainActivity extends FragmentActivity
             state = State.Running;
             timerStart(remaining_time);
             start_button.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
-            progress_bar.setProgress_color(start_color);
         } else if (state == State.Running) {
             // pause
             state = State.Paused;
             timer.cancel();
             start_button.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
-            progress_bar.setProgress_color(progress_color);
         } else {
             // start
             state = State.Running;
@@ -242,7 +236,6 @@ public class MainActivity extends FragmentActivity
             start_button.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
 
             progress_bar.setProgress_max(selected_time);
-            progress_bar.setProgress_color(start_color);
             timerStart(selected_time);
 
             SharedPreferences.Editor editor = settings.edit();
@@ -265,13 +258,17 @@ public class MainActivity extends FragmentActivity
             time_re.setText(getString(R.string.time_remaining_minutes, minutes, seconds));
         }
 
+        // Burn in protection by rotating remaining time
         float end_angle = 0.0f;
-        end_angle = 360.0f - ((selected_time - remaining_time) * 360.0f / selected_time);
-        end_angle = 45.0f * (float) Math.sin(Math.toRadians(end_angle));
+        if (state == State.Running) {
+            end_angle = 360.0f - ((selected_time - remaining_time) * 360.0f / selected_time);
+            end_angle = 20.0f * (float) Math.sin(Math.toRadians(end_angle));
+        }
         time_re.setRotation(end_angle);
     }
 
     protected void resetTimer() {
+        progress_bar.setProgress_max(selected_time);
         progress_bar.setProgress(selected_time);
         stop_button.setVisibility(View.GONE);
         start_button.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
@@ -294,11 +291,13 @@ public class MainActivity extends FragmentActivity
         time_re = findViewById(R.id.time_re);
         start_button = findViewById(R.id.start_button);
         stop_button = findViewById(R.id.stop_button);
-        mode_button = findViewById(R.id.mode_button);
+        Button mode_button = findViewById(R.id.mode_button);
         progress_bar = findViewById(R.id.progress);
-        start_color = ContextCompat.getColor(getApplicationContext(), R.color.start_color);
-        stop_color = ContextCompat.getColor(getApplicationContext(), R.color.stop_color);
-        progress_color = ContextCompat.getColor(getApplicationContext(), R.color.progress_color);
+        warning_sign = findViewById(R.id.warning_sign);
+        background = findViewById(R.id.background);
+
+        background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
+        alarm_player = prepare_alarm_player(this);
 
         resetTimer();
 
@@ -318,7 +317,6 @@ public class MainActivity extends FragmentActivity
                 timer.cancel();
                 resetTimer();
                 state = State.Ready;
-                progress_bar.setProgress_color(progress_color);
             }
         });
 

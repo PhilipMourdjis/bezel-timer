@@ -12,15 +12,13 @@ import android.view.View;
 public class RadialProgress extends View {
     private long progress_max;
     private long progress;
-    private int progress_min;
-    private int progress_color;
+    // private int progress_color;
     private int background_color;
 
-    private Paint progress_paint;
+    // private Paint progress_paint;
     private Paint background_paint;
 
     private RectF mBounds = new RectF();
-    private RectF middle_oval = new RectF();
 
     public RadialProgress(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -32,8 +30,7 @@ public class RadialProgress extends View {
         try {
             progress = a.getInteger(R.styleable.RadialProgress_progress, 0);
             progress_max = a.getInteger(R.styleable.RadialProgress_progress_max, 100);
-            progress_min = a.getInteger(R.styleable.RadialProgress_progress_min, 100);
-            progress_color = a.getColor(R.styleable.RadialProgress_progress_color, Color.parseColor("#ffffff"));
+            // progress_color = a.getColor(R.styleable.RadialProgress_progress_color, Color.parseColor("#ffffff"));
             background_color = a.getColor(R.styleable.RadialProgress_background_color, Color.parseColor("#000000"));
         } finally {
             a.recycle();
@@ -43,22 +40,17 @@ public class RadialProgress extends View {
     }
 
     private void init() {
-        progress_paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        progress_paint.setColor(progress_color);
-        progress_paint.setStyle(Paint.Style.FILL);
-
+//        progress_paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+//        progress_paint.setColor(progress_color);
+//        progress_paint.setStyle(Paint.Style.FILL);
         background_paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         background_paint.setColor(background_color);
         background_paint.setStyle(Paint.Style.FILL);
     }
 
-    public void setProgress_color(int color) {
-        progress_paint.setColor(color);
-        invalidate();
-    }
-
     public void setProgress_max(long new_max) {
         progress_max = new_max;
+        invalidate();
     }
 
     public void setProgress(long new_progress) {
@@ -100,24 +92,19 @@ public class RadialProgress extends View {
                 diameter,
                 diameter);
         mBounds.offsetTo(getPaddingLeft(), getPaddingTop());
-        middle_oval = new RectF(
-                mBounds.left + 10.0f,
-                mBounds.top + 10.0f,
-                mBounds.right - 10.0f,
-                mBounds.bottom - 10.0f);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        float progress_percent = progress / (float) progress_max;
 
-        float end_angle = (progress_max - progress) * 360.0f / progress_max;
-        canvas.drawArc(
-                mBounds,
-                 -90,
-                360.0f - end_angle,
-                true,
-                progress_paint);
-        canvas.drawOval(middle_oval, background_paint);
+        // Draw progress as an arc
+        // float sweep_angle = progress_percent * 360.0f;
+        // canvas.drawArc(mBounds, -90, sweep_angle, true, progress_paint);
+
+        // Draw remaining section of arc in background color
+        float sweep_angle = -((1.0f - progress_percent) * 360.0f);
+        canvas.drawArc(mBounds, -90, sweep_angle, true, background_paint);
     }
 }
