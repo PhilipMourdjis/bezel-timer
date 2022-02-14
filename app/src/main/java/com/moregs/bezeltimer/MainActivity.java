@@ -1,6 +1,11 @@
 package com.moregs.bezeltimer;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.media.AudioDeviceInfo;
@@ -32,6 +37,13 @@ import java.util.concurrent.Executor;
 
 public class MainActivity extends FragmentActivity
         implements AmbientModeSupport.AmbientCallbackProvider {
+    // Action for updating the display in ambient mode, per our custom refresh cycle.
+    private static final String AMBIENT_UPDATE_ACTION = "com.your.package.action.AMBIENT_UPDATE";
+
+    private AlarmManager ambientUpdateAlarmManager;
+    private PendingIntent ambientUpdatePendingIntent;
+    private BroadcastReceiver ambientUpdateBroadcastReceiver;
+
     private ActivityMainBinding binding;
     private AmbientModeSupport.AmbientController ambientController;
     private boolean is_ambient;
@@ -47,9 +59,9 @@ public class MainActivity extends FragmentActivity
     private TextView step_setting;
     private RadialProgress progress_bar;
     private boolean step_selection_mode = false;
-    private final long one_second = 1000;
-    private final long one_minute = 60 * one_second;
-    private final long one_hour = 60 * one_minute;
+    private static final long one_second = 1000;
+    private static final long one_minute = 60 * one_second;
+    private static final long one_hour = 60 * one_minute;
     private long time_delta;
     private long selected_time;
     private long remaining_time;
@@ -73,12 +85,14 @@ public class MainActivity extends FragmentActivity
             stop_button.setVisibility(View.GONE);
             time_re.setTextColor(ContextCompat.getColor(getApplicationContext(), R.color.ambient));
             background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), R.color.ambient)));
+            refreshDisplayAndSetNextUpdate();
         }
 
         @Override
         public void onExitAmbient() {
             // Handle exiting ambient mode
             super.onExitAmbient();
+            ambientUpdateAlarmManager.cancel(ambientUpdatePendingIntent);
             is_ambient = false;
             Log.i("Ambient", "Exit");
             checkDoneWakeUp();
@@ -99,13 +113,7 @@ public class MainActivity extends FragmentActivity
             // Update the content
             super.onUpdateAmbient();
             Log.i("Ambient", "Update");
-            if (state == State.Done) {
-                float max = 0.8f;
-                float min = 0.2f;
-                float x = (float) (Math.random() * (max - min)) + min;
-                float y = (float) (Math.random() * (max - min)) + min;
-                setWarningLocation(x, y);
-            }
+            refreshDisplayAndSetNextUpdate();
         }
     }
 
@@ -174,7 +182,7 @@ public class MainActivity extends FragmentActivity
             @Override
             public void onTick(long millisUntilFinished) {
                 remaining_time = millisUntilFinished;
-                setProgress(millisUntilFinished);
+                setProgress(remaining_time);
                 updateTimeDisplay(remaining_time);
             }
 
@@ -333,6 +341,21 @@ public class MainActivity extends FragmentActivity
         ambientController = AmbientModeSupport.attach(this);
         is_ambient = ambientController.isAmbient();
 
+        ambientUpdateAlarmManager =
+                (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+
+        Intent ambientUpdateIntent = new Intent(AMBIENT_UPDATE_ACTION);
+
+        ambientUpdatePendingIntent = PendingIntent.getBroadcast(
+                this, 0, ambientUpdateIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        ambientUpdateBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                refreshDisplayAndSetNextUpdate();
+            }
+        };
+
         // Load settings
         settings = this.getPreferences(Context.MODE_PRIVATE);
         selected_time = settings.getLong("last_selected_time", one_minute);
@@ -394,5 +417,45 @@ public class MainActivity extends FragmentActivity
                 play_pause();
             }
         });
+    }
+
+    // Milliseconds between waking processor/screen for updates
+    private static final long AMBIENT_INTERVAL_MS = one_second;
+
+    private void refreshDisplayAndSetNextUpdate() {
+        if (is_ambient) {
+            if (state == State.Done) {
+                float max = 0.8f;
+                float min = 0.2f;
+                float x = (float) (Math.random() * (max - min)) + min;
+                float y = (float) (Math.random() * (max - min)) + min;
+                Log.i("Main", "X: " + x + " Y: " + y);
+                setWarningLocation(x, y);
+            }
+        }
+        long timeMs = System.currentTimeMillis();
+        // Schedule a new alarm
+        // Calculate the next trigger time
+        long delayMs = AMBIENT_INTERVAL_MS - (timeMs % AMBIENT_INTERVAL_MS);
+        Log.i("Main", "refreshing ambient" + delayMs);
+        long triggerTimeMs = timeMs + delayMs;
+        if (!is_ambient) {
+            triggerTimeMs /= 100;
+        }
+        ambientUpdateAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMs, ambientUpdatePendingIntent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        IntentFilter filter = new IntentFilter(AMBIENT_UPDATE_ACTION);
+        registerReceiver(ambientUpdateBroadcastReceiver, filter);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        unregisterReceiver(ambientUpdateBroadcastReceiver);
+        ambientUpdateAlarmManager.cancel(ambientUpdatePendingIntent);
     }
 }
