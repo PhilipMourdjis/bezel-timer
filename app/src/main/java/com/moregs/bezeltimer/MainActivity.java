@@ -44,9 +44,6 @@ public class MainActivity extends FragmentActivity
     private PendingIntent ambientUpdatePendingIntent;
     private BroadcastReceiver ambientUpdateBroadcastReceiver;
 
-    private ActivityMainBinding binding;
-    private AmbientModeSupport.AmbientController ambientController;
-    private boolean is_ambient;
     private SharedPreferences settings;
     Executor mainExecutor;
     private CountDownTimer timer;
@@ -79,7 +76,6 @@ public class MainActivity extends FragmentActivity
         public void onEnterAmbient(Bundle ambientDetails) {
             // Handle entering ambient mode
             super.onEnterAmbient(ambientDetails);
-            is_ambient = true;
             Log.i("Ambient", "Enter");
             start_button.setVisibility(View.GONE);
             stop_button.setVisibility(View.GONE);
@@ -93,7 +89,6 @@ public class MainActivity extends FragmentActivity
             // Handle exiting ambient mode
             super.onExitAmbient();
             ambientUpdateAlarmManager.cancel(ambientUpdatePendingIntent);
-            is_ambient = false;
             Log.i("Ambient", "Exit");
             checkDoneWakeUp();
             start_button.setVisibility(View.VISIBLE);
@@ -189,28 +184,26 @@ public class MainActivity extends FragmentActivity
             @Override
             public void onFinish() {
                 // execution is finished, we set default values
-                mainExecutor.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        alarm_player.start();
-                        state = State.Done;
-                        setWarningLocation(0.5f, 0.5f);
-                        warning_sign.setVisibility(View.VISIBLE);
-                        start_button.setVisibility(View.GONE);
-                        stop_button.setVisibility(View.GONE);
-                        time_re.setVisibility(View.GONE);
-                    }
+                mainExecutor.execute(() -> {
+                    alarm_player.start();
+                    state = State.Done;
+                    setWarningLocation(0.5f, 0.5f, 0.0f);
+                    warning_sign.setVisibility(View.VISIBLE);
+                    start_button.setVisibility(View.GONE);
+                    stop_button.setVisibility(View.GONE);
+                    time_re.setVisibility(View.GONE);
                 });
             }
         };
         timer.start();
     }
 
-    private void setWarningLocation(float x, float y) {
+    private void setWarningLocation(float x, float y, float r) {
         ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) warning_sign.getLayoutParams();
         params.horizontalBias = x;
         params.verticalBias = y;
         warning_sign.requestLayout();
+        warning_sign.setRotation(r);
     }
 
     private void checkDoneWakeUp() {
@@ -231,24 +224,11 @@ public class MainActivity extends FragmentActivity
 
             try {
                 mediaPlayer.setPreferredDevice(audioOutput.get_internal_speaker());
-                mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                    @Override
-                    public void onPrepared(MediaPlayer player) {
-                        Log.i("mediaPlayer", "Prepared");
-                    }
-                });
-                mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                    @Override
-                    public void onCompletion(MediaPlayer mediaPlayer) {
-                        Log.i("mediaPlayer", "Alarm complete");
-                    }
-                });
-                mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-                    @Override
-                    public boolean onError(MediaPlayer mediaPlayer, int i, int i1) {
-                        Log.d("mediaPlayer", "Alarm error: " + i + " : " + i1);
-                        return false;
-                    }
+                mediaPlayer.setOnPreparedListener(player -> Log.i("mediaPlayer", "Prepared"));
+                mediaPlayer.setOnCompletionListener(player -> Log.i("mediaPlayer", "Alarm complete"));
+                mediaPlayer.setOnErrorListener((player, i, i1) -> {
+                    Log.d("mediaPlayer", "Alarm error: " + i + " : " + i1);
+                    return false;
                 });
                 return mediaPlayer;
             } catch (IllegalArgumentException e) {
@@ -334,21 +314,17 @@ public class MainActivity extends FragmentActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i("Main", "Created");
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        com.moregs.bezeltimer.databinding.ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        // Handle ambient updates
         mainExecutor = ContextCompat.getMainExecutor(this);
-        ambientController = AmbientModeSupport.attach(this);
-        is_ambient = ambientController.isAmbient();
-
+        AmbientModeSupport.attach(this);
         ambientUpdateAlarmManager =
                 (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-
         Intent ambientUpdateIntent = new Intent(AMBIENT_UPDATE_ACTION);
-
         ambientUpdatePendingIntent = PendingIntent.getBroadcast(
                 this, 0, ambientUpdateIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-
         ambientUpdateBroadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -379,43 +355,34 @@ public class MainActivity extends FragmentActivity
         resetTimer();
 
         // Create on click event listeners
-        mode_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.i("Main", "Mode button pressed");
-                if (state == State.Done) {
-                    checkDoneWakeUp();
-                } else if (step_selection_mode) {
-                    SharedPreferences.Editor editor = settings.edit();
-                    editor.putLong("time_delta", time_delta);
-                    editor.apply();
-                    step_setting.setVisibility(View.GONE);
-                    updateTimeDisplay(selected_time);
-                } else {
-                    step_setting.setVisibility(View.VISIBLE);
-                    updateTimeDisplay(time_delta);
-                }
-                step_selection_mode = !step_selection_mode;
+        mode_button.setOnClickListener(view -> {
+            Log.i("Main", "Mode button pressed");
+            if (state == State.Done) {
+                checkDoneWakeUp();
+            } else if (step_selection_mode) {
+                SharedPreferences.Editor editor = settings.edit();
+                editor.putLong("time_delta", time_delta);
+                editor.apply();
+                step_setting.setVisibility(View.GONE);
+                updateTimeDisplay(selected_time);
+            } else {
+                step_setting.setVisibility(View.VISIBLE);
+                updateTimeDisplay(time_delta);
             }
+            step_selection_mode = !step_selection_mode;
         });
 
-        stop_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.i("Main", "Stop button pressed");
-                // we cancel the countdown timer execution when user click on the stop button
-                timer.cancel();
-                state = State.Ready;
-                resetTimer();
-            }
+        stop_button.setOnClickListener(view -> {
+            Log.i("Main", "Stop button pressed");
+            // we cancel the countdown timer execution when user click on the stop button
+            timer.cancel();
+            state = State.Ready;
+            resetTimer();
         });
 
-        start_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.i("Main", "Play / Pause button pressed");
-                play_pause();
-            }
+        start_button.setOnClickListener(view -> {
+            Log.i("Main", "Play / Pause button pressed");
+            play_pause();
         });
     }
 
@@ -423,25 +390,20 @@ public class MainActivity extends FragmentActivity
     private static final long AMBIENT_INTERVAL_MS = one_second;
 
     private void refreshDisplayAndSetNextUpdate() {
-        if (is_ambient) {
-            if (state == State.Done) {
-                float max = 0.8f;
-                float min = 0.2f;
-                float x = (float) (Math.random() * (max - min)) + min;
-                float y = (float) (Math.random() * (max - min)) + min;
-                Log.i("Main", "X: " + x + " Y: " + y);
-                setWarningLocation(x, y);
-            }
+        if (state == State.Done) {
+            float max = 0.8f;
+            float min = 0.2f;
+            float x = (float) (Math.random() * (max - min)) + min;
+            float y = (float) (Math.random() * (max - min)) + min;
+            float r = (float) Math.random() * 360.0f;
+            setWarningLocation(x, y, r);
         }
         long timeMs = System.currentTimeMillis();
         // Schedule a new alarm
         // Calculate the next trigger time
         long delayMs = AMBIENT_INTERVAL_MS - (timeMs % AMBIENT_INTERVAL_MS);
-        Log.i("Main", "refreshing ambient" + delayMs);
+        Log.i("Main", "refreshing ambient in: " + delayMs);
         long triggerTimeMs = timeMs + delayMs;
-        if (!is_ambient) {
-            triggerTimeMs /= 100;
-        }
         ambientUpdateAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMs, ambientUpdatePendingIntent);
     }
 
