@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
-import android.media.AudioDeviceInfo;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -110,6 +109,38 @@ public class MainActivity extends FragmentActivity
             Log.i("Ambient", "Update");
             refreshDisplayAndSetNextUpdate();
         }
+    }
+
+    private void refreshDisplayAndSetNextUpdate() {
+        if (state == State.Done) {
+            float max = 0.8f;
+            float min = 0.2f;
+            float x = (float) (Math.random() * (max - min)) + min;
+            float y = (float) (Math.random() * (max - min)) + min;
+            float r = (float) Math.random() * 360.0f;
+            setWarningLocation(x, y, r);
+        }
+        // Schedule a new alarm
+        long timeMs = System.currentTimeMillis();
+        // Calculate the next trigger time - try to adjust for slow previous updates by shortening next update window
+        long delayMs = one_second - (timeMs % one_second);
+        Log.i("Main", "refreshing ambient in: " + delayMs);
+        long triggerTimeMs = timeMs + delayMs;
+        ambientUpdateAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMs, ambientUpdatePendingIntent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        IntentFilter filter = new IntentFilter(AMBIENT_UPDATE_ACTION);
+        registerReceiver(ambientUpdateBroadcastReceiver, filter);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        unregisterReceiver(ambientUpdateBroadcastReceiver);
+        ambientUpdateAlarmManager.cancel(ambientUpdatePendingIntent);
     }
 
     /* PHYSICAL CONTROLS */
@@ -216,35 +247,6 @@ public class MainActivity extends FragmentActivity
         }
     }
 
-    private MediaPlayer prepare_alarm_player(Context context) {
-        Log.i("Main", "Sound the alarm");
-        AudioOutput audioOutput = new AudioOutput(context);
-        if (audioOutput.audioOutputAvailable(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)) {
-            MediaPlayer mediaPlayer = MediaPlayer.create(context, R.raw.alarm2);
-
-            try {
-                mediaPlayer.setPreferredDevice(audioOutput.get_internal_speaker());
-                mediaPlayer.setOnPreparedListener(player -> Log.i("mediaPlayer", "Prepared"));
-                mediaPlayer.setOnCompletionListener(player -> Log.i("mediaPlayer", "Alarm complete"));
-                mediaPlayer.setOnErrorListener((player, i, i1) -> {
-                    Log.d("mediaPlayer", "Alarm error: " + i + " : " + i1);
-                    return false;
-                });
-                return mediaPlayer;
-            } catch (IllegalArgumentException e) {
-                Log.d("mediaPlayer", "IllegalArgumentException playing alarm: " + e.getMessage());
-                e.printStackTrace();
-            } catch (SecurityException e) {
-                Log.d("mediaPlayer", "SecurityException playing alarm: " + e.getMessage());
-                e.printStackTrace();
-            } catch (IllegalStateException e) {
-                Log.d("mediaPlayer", "IllegalStateException playing alarm: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-        return null;
-    }
-
     private void play_pause() {
         if (state == State.Paused) {
             // unpause
@@ -349,7 +351,7 @@ public class MainActivity extends FragmentActivity
 
         // Set initial conditions
         background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
-        alarm_player = prepare_alarm_player(this);
+        alarm_player = new AudioOutput(this).prepare_alarm_player();
         step_setting.setVisibility(View.GONE);
         warning_sign.setVisibility(View.GONE);
         resetTimer();
@@ -384,40 +386,5 @@ public class MainActivity extends FragmentActivity
             Log.i("Main", "Play / Pause button pressed");
             play_pause();
         });
-    }
-
-    // Milliseconds between waking processor/screen for updates
-    private static final long AMBIENT_INTERVAL_MS = one_second;
-
-    private void refreshDisplayAndSetNextUpdate() {
-        if (state == State.Done) {
-            float max = 0.8f;
-            float min = 0.2f;
-            float x = (float) (Math.random() * (max - min)) + min;
-            float y = (float) (Math.random() * (max - min)) + min;
-            float r = (float) Math.random() * 360.0f;
-            setWarningLocation(x, y, r);
-        }
-        long timeMs = System.currentTimeMillis();
-        // Schedule a new alarm
-        // Calculate the next trigger time
-        long delayMs = AMBIENT_INTERVAL_MS - (timeMs % AMBIENT_INTERVAL_MS);
-        Log.i("Main", "refreshing ambient in: " + delayMs);
-        long triggerTimeMs = timeMs + delayMs;
-        ambientUpdateAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMs, ambientUpdatePendingIntent);
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        IntentFilter filter = new IntentFilter(AMBIENT_UPDATE_ACTION);
-        registerReceiver(ambientUpdateBroadcastReceiver, filter);
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        unregisterReceiver(ambientUpdateBroadcastReceiver);
-        ambientUpdateAlarmManager.cancel(ambientUpdatePendingIntent);
     }
 }
