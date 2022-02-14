@@ -50,7 +50,6 @@ public class RadialProgress extends View {
 
     public void setProgress_max(long new_max) {
         progress_max = new_max;
-        invalidate();
     }
 
     public void setProgress(long new_progress) {

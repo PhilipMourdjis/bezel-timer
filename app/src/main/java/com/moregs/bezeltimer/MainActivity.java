@@ -34,6 +34,7 @@ public class MainActivity extends FragmentActivity
         implements AmbientModeSupport.AmbientCallbackProvider {
     private ActivityMainBinding binding;
     private AmbientModeSupport.AmbientController ambientController;
+    private boolean is_ambient;
     private SharedPreferences settings;
     Executor mainExecutor;
     private CountDownTimer timer;
@@ -42,7 +43,6 @@ public class MainActivity extends FragmentActivity
     private ImageView warning_sign;
     private ImageView background;
     private State state = State.Ready;
-    private boolean done_drawn = false;
     private TextView time_re;
     private TextView step_setting;
     private RadialProgress progress_bar;
@@ -67,6 +67,7 @@ public class MainActivity extends FragmentActivity
         public void onEnterAmbient(Bundle ambientDetails) {
             // Handle entering ambient mode
             super.onEnterAmbient(ambientDetails);
+            is_ambient = true;
             Log.i("Ambient", "Enter");
             start_button.setVisibility(View.GONE);
             stop_button.setVisibility(View.GONE);
@@ -78,20 +79,16 @@ public class MainActivity extends FragmentActivity
         public void onExitAmbient() {
             // Handle exiting ambient mode
             super.onExitAmbient();
+            is_ambient = false;
             Log.i("Ambient", "Exit");
             checkDoneWakeUp();
             start_button.setVisibility(View.VISIBLE);
             time_re.setTextColor(ContextCompat.getColor(getApplicationContext(), android.R.color.white));
             background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
             switch (state) {
-                case Ready:
-                    break;
                 case Running:
                 case Paused:
                     stop_button.setVisibility(View.VISIBLE);
-                    break;
-                case Done:
-                    state = State.Ready;
                     break;
             }
             time_re.setVisibility(View.VISIBLE);
@@ -334,7 +331,7 @@ public class MainActivity extends FragmentActivity
 
         mainExecutor = ContextCompat.getMainExecutor(this);
         ambientController = AmbientModeSupport.attach(this);
-        ambientController.isAmbient();
+        is_ambient = ambientController.isAmbient();
 
         // Load settings
         settings = this.getPreferences(Context.MODE_PRIVATE);
