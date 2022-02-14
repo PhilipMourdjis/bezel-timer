@@ -202,7 +202,7 @@ public class MainActivity extends FragmentActivity
         ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) warning_sign.getLayoutParams();
         params.horizontalBias = x;
         params.verticalBias = y;
-        warning_sign.requestLayout();
+        warning_sign.setLayoutParams(params);
         warning_sign.setRotation(r);
     }
 
