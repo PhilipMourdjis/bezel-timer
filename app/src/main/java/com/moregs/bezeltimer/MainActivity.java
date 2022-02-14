@@ -41,13 +41,14 @@ public class MainActivity extends FragmentActivity
     private ImageView warning_sign;
     private ImageView background;
     private State state = State.Ready;
-    private boolean is_ambient = false;
     private boolean done_drawn = false;
     private TextView time_re;
+    private TextView step_setting;
     private RadialProgress progress_bar;
-    private boolean mode_seconds = false;
+    private boolean step_selection_mode = false;
     private final long one_minute = 60000;
     private final long one_second = 1000;
+    private long time_delta;
     private long selected_time;
     private long remaining_time;
     private MediaPlayer alarm_player = null;
@@ -64,8 +65,6 @@ public class MainActivity extends FragmentActivity
         public void onEnterAmbient(Bundle ambientDetails) {
             // Handle entering ambient mode
             super.onEnterAmbient(ambientDetails);
-            is_ambient = true;
-
             Log.i("Ambient", "Enter");
             start_button.setVisibility(View.GONE);
             stop_button.setVisibility(View.GONE);
@@ -77,10 +76,8 @@ public class MainActivity extends FragmentActivity
         public void onExitAmbient() {
             // Handle exiting ambient mode
             super.onExitAmbient();
-            is_ambient = false;
-            warning_sign.setVisibility(View.GONE);
-
             Log.i("Ambient", "Exit");
+            warning_sign.setVisibility(View.GONE);
             start_button.setVisibility(View.VISIBLE);
             time_re.setTextColor(ContextCompat.getColor(getApplicationContext(), android.R.color.white));
             background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
@@ -131,18 +128,42 @@ public class MainActivity extends FragmentActivity
                     ViewConfigurationCompat.getScaledVerticalScrollFactor(
                             ViewConfiguration.get(context), context
                     );
-            long time_delta = mode_seconds ? one_second : one_minute;
 
-            // Swap these axes if you want to do horizontal scrolling instead
-            if (scroll_delta > 0) {
-                selected_time += time_delta;
-            } else if (scroll_delta < 0) {
-                selected_time -= time_delta;
-                if (selected_time < time_delta) {
-                    selected_time += time_delta;
+            // choose size of timer steps
+            if (step_selection_mode) {
+                if (scroll_delta > 0) {
+                    if (time_delta < one_minute) {
+                        time_delta += one_second;
+                    }
+                    else {
+                        time_delta += one_minute;
+                    }
+                } else if (scroll_delta < 0) {
+                    if (time_delta > one_minute) {
+                        time_delta -= one_minute;
+                    }
+                    else {
+                        time_delta -= one_second;
+                    }
+                    if (time_delta < one_second) {
+                        time_delta += one_second;
+                    }
                 }
+                updateTimeDisplay(time_delta);
             }
-            updateTimeDisplay(selected_time);
+
+            else {
+                if (scroll_delta > 0) {
+                    selected_time += time_delta;
+                } else if (scroll_delta < 0) {
+                    selected_time -= time_delta;
+                    if (selected_time < time_delta) {
+                        selected_time += time_delta;
+                    }
+                }
+                updateTimeDisplay(selected_time);
+                progress_bar.setProgress(selected_time);
+            }
             return true;
         }
         return false;
@@ -235,7 +256,7 @@ public class MainActivity extends FragmentActivity
             stop_button.setVisibility(View.VISIBLE);
             start_button.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
 
-            progress_bar.setProgress_max(selected_time);
+            progress_bar.setProgress_max(60 * one_minute);
             timerStart(selected_time);
 
             SharedPreferences.Editor editor = settings.edit();
@@ -268,7 +289,7 @@ public class MainActivity extends FragmentActivity
     }
 
     protected void resetTimer() {
-        progress_bar.setProgress_max(selected_time);
+        progress_bar.setProgress_max(60 * one_minute);
         progress_bar.setProgress(selected_time);
         stop_button.setVisibility(View.GONE);
         start_button.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
@@ -284,11 +305,16 @@ public class MainActivity extends FragmentActivity
 
         mainExecutor = ContextCompat.getMainExecutor(this);
         ambientController = AmbientModeSupport.attach(this);
-        is_ambient = ambientController.isAmbient();
+        ambientController.isAmbient();
+
+        // Load settings
         settings = this.getPreferences(Context.MODE_PRIVATE);
         selected_time = settings.getLong("last_selected_time", one_minute);
+        time_delta = settings.getLong("time_delta", one_minute / 2);
 
+        // Find GUI components
         time_re = findViewById(R.id.time_re);
+        step_setting = findViewById(R.id.step_setting);
         start_button = findViewById(R.id.start_button);
         stop_button = findViewById(R.id.stop_button);
         Button mode_button = findViewById(R.id.mode_button);
@@ -296,16 +322,29 @@ public class MainActivity extends FragmentActivity
         warning_sign = findViewById(R.id.warning_sign);
         background = findViewById(R.id.background);
 
+        // Set initial conditions
         background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
         alarm_player = prepare_alarm_player(this);
-
+        step_setting.setVisibility(View.GONE);
         resetTimer();
 
+        // Create on click event listeners
         mode_button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mode_seconds = !mode_seconds;
                 Log.i("Main", "Mode button pressed");
+                if (step_selection_mode) {
+                    SharedPreferences.Editor editor = settings.edit();
+                    editor.putLong("time_delta", time_delta);
+                    editor.apply();
+                    step_setting.setVisibility(View.GONE);
+                    updateTimeDisplay(selected_time);
+                }
+                else {
+                    step_setting.setVisibility(View.VISIBLE);
+                    updateTimeDisplay(time_delta);
+                }
+                step_selection_mode = !step_selection_mode;
             }
         });
 

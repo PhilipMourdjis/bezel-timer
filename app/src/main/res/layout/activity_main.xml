@@ -32,10 +32,25 @@
         app:progress_max="60" />
 
     <TextView
+        android:id="@+id/step_setting"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/step_interval"
+        android:textAlignment="center"
+        android:textColor="@android:color/white"
+        android:textFontWeight="@android:integer/config_shortAnimTime"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@id/time_re"
+        app:layout_constraintEnd_toStartOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="1" />
+
+    <TextView
         android:id="@+id/time_re"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="00:00:00"
+        android:text="@string/time_remaining_placeholder"
         android:textAlignment="center"
         android:textColor="@android:color/white"
         android:textFontWeight="@android:integer/config_shortAnimTime"
