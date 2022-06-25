@@ -35,7 +35,7 @@
         android:id="@+id/step_setting"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/step_interval"
+        android:text="@string/edit_mode_smart"
         android:textAlignment="center"
         android:textColor="@android:color/white"
         android:textFontWeight="@android:integer/config_shortAnimTime"
@@ -44,7 +44,7 @@
         app:layout_constraintEnd_toStartOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="1" />
+        app:layout_constraintVertical_bias="0.9" />
 
     <TextView
         android:id="@+id/time_re"
@@ -63,10 +63,29 @@
         app:layout_constraintVertical_bias="0.475" />
 
     <Button
-        android:id="@+id/mode_button"
-        android:layout_width="match_parent"
+        android:id="@+id/hour_mode_button"
+        android:layout_width="66dp"
         android:layout_height="wrap_content"
         android:background="@color/transparent"
+        app:layout_constraintEnd_toStartOf="@+id/minute_mode_button"
+        app:layout_constraintBottom_toBottomOf="@+id/time_re" />
+    <Button
+        android:id="@+id/minute_mode_button"
+        android:layout_width="66dp"
+        android:layout_height="wrap_content"
+        android:background="@color/transparent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.5" />
+    <Button
+        android:id="@+id/second_mode_button"
+        android:layout_width="66dp"
+        android:layout_height="wrap_content"
+        android:background="@color/transparent"
+        app:layout_constraintStart_toEndOf="@+id/minute_mode_button"
         app:layout_constraintBottom_toBottomOf="@+id/time_re" />
 
     <ImageView
@@ -77,7 +96,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.225"/>
 
     <ImageButton
         android:id="@+id/start_button"
@@ -87,10 +107,10 @@
         android:src="@drawable/ic_baseline_play_circle_outline_24"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintHorizontal_bias="0.7775"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.875" />
+        app:layout_constraintVertical_bias="0.775" />
 
     <ImageButton
         android:id="@+id/stop_button"
@@ -101,8 +121,8 @@
         android:visibility="visible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintHorizontal_bias="0.225"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.125" />
+        app:layout_constraintVertical_bias="0.775" />
 </androidx.constraintlayout.widget.ConstraintLayout>

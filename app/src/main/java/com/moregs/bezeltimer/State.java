@@ -1,5 +1,5 @@
 package com.moregs.bezeltimer;
 
 public enum State {
-    Ready, Running, Paused, Done
+    READY, RUNNING, PAUSED, DONE
 }

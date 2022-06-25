@@ -50,15 +50,14 @@ public class MainActivity extends FragmentActivity
     private ImageButton stop_button;
     private ImageView warning_sign;
     private ImageView background;
-    private State state = State.Ready;
+    private State state = State.READY;
     private TextView time_re;
     private TextView step_setting;
     private RadialProgress progress_bar;
-    private boolean step_selection_mode = false;
+    private EditMode step_selection_mode = EditMode.SMART;
     private static final long one_second = 1000;
     private static final long one_minute = 60 * one_second;
     private static final long one_hour = 60 * one_minute;
-    private long time_delta;
     private long selected_time;
     private long remaining_time;
     private MediaPlayer alarm_player = null;
@@ -91,14 +90,9 @@ public class MainActivity extends FragmentActivity
             Log.i("Ambient", "Exit");
             checkDoneWakeUp();
             start_button.setVisibility(View.VISIBLE);
+            stop_button.setVisibility(View.VISIBLE);
             time_re.setTextColor(ContextCompat.getColor(getApplicationContext(), android.R.color.white));
             background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
-            switch (state) {
-                case Running:
-                case Paused:
-                    stop_button.setVisibility(View.VISIBLE);
-                    break;
-            }
             time_re.setVisibility(View.VISIBLE);
         }
 
@@ -112,7 +106,7 @@ public class MainActivity extends FragmentActivity
     }
 
     private void refreshDisplayAndSetNextUpdate() {
-        if (state == State.Done) {
+        if (state == State.DONE) {
             float max = 0.8f;
             float min = 0.2f;
             float x = (float) (Math.random() * (max - min)) + min;
@@ -148,7 +142,7 @@ public class MainActivity extends FragmentActivity
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         checkDoneWakeUp();
-        List<State> no_input = Arrays.asList(State.Running, State.Paused);
+        List<State> no_input = Arrays.asList(State.RUNNING, State.PAUSED);
         if (no_input.contains(state)) {
             return false;
         }
@@ -159,45 +153,78 @@ public class MainActivity extends FragmentActivity
                     ViewConfigurationCompat.getScaledVerticalScrollFactor(
                             ViewConfiguration.get(context), context
                     );
-
-            // choose size of timer steps
-            if (step_selection_mode) {
-                if (scroll_delta > 0) {
-                    if (time_delta < one_minute) {
-                        time_delta += 5 * one_second;
-                    } else if (time_delta < 5 * one_minute) {
-                        time_delta += 30 * one_second;
-                    } else {
-                        time_delta += one_minute;
-                    }
-                } else if (scroll_delta < 0) {
-                    if (time_delta > 5 * one_minute) {
-                        time_delta -= one_minute;
-                    } else if (time_delta > one_minute) {
-                        time_delta -= 30 * one_second;
-                    } else {
-                        time_delta -= 5 * one_second;
-                    }
-                }
-                if (time_delta < 5 * one_second) {
-                    time_delta = 5 * one_second;
-                }
-                updateTimeDisplay(time_delta);
-            } else {
-                if (scroll_delta > 0) {
-                    selected_time += time_delta;
-                } else if (scroll_delta < 0) {
-                    selected_time -= time_delta;
-                    if (selected_time < time_delta) {
-                        selected_time = time_delta;
-                    }
-                }
-                updateTimeDisplay(selected_time);
-                setProgress(selected_time);
+            if (scroll_delta > 0) {
+                rotateClockwise();
+            } else if (scroll_delta < 0) {
+                rotateCounterClockwise();
             }
+            // Clamp minimum time value
+            if (selected_time < 1 * one_second) {
+                selected_time = 0;
+            }
+            updateTimeDisplay(selected_time);
+            setProgress(selected_time);
             return true;
         }
         return false;
+    }
+
+    public void rotateClockwise() {
+        switch (step_selection_mode) {
+            case SMART:
+                if (selected_time < one_minute) {
+                    selected_time += 5 * one_second;
+                    selected_time -= selected_time % (5 * one_second);
+                } else if (selected_time < 5 * one_minute) {
+                    selected_time += 30 * one_second;
+                    selected_time -= selected_time % (30 * one_second);
+                } else if (selected_time < one_hour) {
+                    selected_time += one_minute;
+                    selected_time -= selected_time % (one_minute);
+                } else {
+                    selected_time += 5 * one_minute;
+                    selected_time -= selected_time % (5 * one_minute);
+                }
+                break;
+            case HOURS:
+                selected_time += one_hour;
+                break;
+            case MINUTES:
+                selected_time += one_minute;
+                break;
+            case SECONDS:
+                selected_time += one_second;
+                break;
+        }
+    }
+
+    public void rotateCounterClockwise() {
+        switch (step_selection_mode) {
+            case SMART:
+                if (selected_time > one_hour) {
+                    selected_time -= 5 * one_minute;
+                    selected_time -= selected_time % (5 * one_minute);
+                } else if (selected_time > 5 * one_minute) {
+                    selected_time -= one_minute;
+                    selected_time -= selected_time % (one_minute);
+                } else if (selected_time > one_minute) {
+                    selected_time -= 30 * one_second;
+                    selected_time -= selected_time % (30 * one_second);
+                } else {
+                    selected_time -= 5 * one_second;
+                    selected_time -= selected_time % (5 * one_second);
+                }
+                break;
+            case HOURS:
+                selected_time -= one_hour;
+                break;
+            case MINUTES:
+                selected_time -= one_minute;
+                break;
+            case SECONDS:
+                selected_time -= one_second;
+                break;
+        }
     }
 
     /* HELPER FUNCTIONS */
@@ -217,7 +244,7 @@ public class MainActivity extends FragmentActivity
                 // execution is finished, we set default values
                 mainExecutor.execute(() -> {
                     alarm_player.start();
-                    state = State.Done;
+                    state = State.DONE;
                     setWarningLocation(0.5f, 0.5f, 0.0f);
                     warning_sign.setVisibility(View.VISIBLE);
                     start_button.setVisibility(View.GONE);
@@ -238,31 +265,37 @@ public class MainActivity extends FragmentActivity
     }
 
     private void checkDoneWakeUp() {
-        if (state == State.Done) {
+        if (state == State.DONE) {
             warning_sign.setVisibility(View.GONE);
             time_re.setVisibility(View.VISIBLE);
             start_button.setVisibility(View.VISIBLE);
             resetTimer();
-            state = State.Ready;
+            state = State.READY;
+            step_setting.setVisibility(View.VISIBLE);
         }
     }
 
     private void play_pause() {
-        if (state == State.Paused) {
+        stop_button.setImageResource(R.drawable.ic_baseline_cancel_24);
+        if (state == State.PAUSED) {
             // unpause
-            state = State.Running;
+            state = State.RUNNING;
             timerStart(remaining_time);
             start_button.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
-        } else if (state == State.Running) {
+            step_setting.setVisibility(View.GONE);
+        } else if (state == State.RUNNING) {
             // pause
-            state = State.Paused;
+            state = State.PAUSED;
             timer.cancel();
             start_button.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
+            step_setting.setVisibility(View.VISIBLE);
+            step_setting.setText(getString(R.string.edit_mode_pause));
         } else {
             // start
-            state = State.Running;
+            state = State.RUNNING;
             stop_button.setVisibility(View.VISIBLE);
             start_button.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
+            step_setting.setVisibility(View.GONE);
             timerStart(selected_time);
 
             SharedPreferences.Editor editor = settings.edit();
@@ -287,11 +320,28 @@ public class MainActivity extends FragmentActivity
 
         // Burn in protection by rotating remaining time
         float end_angle = 0.0f;
-        if (state == State.Running) {
+        if (state == State.RUNNING) {
             end_angle = 360.0f - ((selected_time - remaining_time) * 360.0f / selected_time);
             end_angle = 20.0f * (float) Math.sin(Math.toRadians(end_angle));
         }
         time_re.setRotation(end_angle);
+    }
+
+    private void updateTextLabel() {
+        switch (step_selection_mode) {
+            case SMART:
+                step_setting.setText(getString(R.string.edit_mode_smart));
+                break;
+            case MINUTES:
+                step_setting.setText(getString(R.string.edit_mode_minutes));
+                break;
+            case SECONDS:
+                step_setting.setText(getString(R.string.edit_mode_seconds));
+                break;
+            case HOURS:
+                step_setting.setText(getString(R.string.edit_mode_hours));
+                break;
+        }
     }
 
     private void setProgress(long time) {
@@ -307,9 +357,10 @@ public class MainActivity extends FragmentActivity
 
     protected void resetTimer() {
         setProgress(selected_time);
-        stop_button.setVisibility(View.GONE);
+        stop_button.setImageResource(R.drawable.ic_baseline_cancel_disabled_24);
         start_button.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
         updateTimeDisplay(selected_time);
+        updateTextLabel();
     }
 
     @Override
@@ -337,14 +388,15 @@ public class MainActivity extends FragmentActivity
         // Load settings
         settings = this.getPreferences(Context.MODE_PRIVATE);
         selected_time = settings.getLong("last_selected_time", one_minute);
-        time_delta = settings.getLong("time_delta", one_minute / 2);
 
         // Find GUI components
         time_re = findViewById(R.id.time_re);
         step_setting = findViewById(R.id.step_setting);
         start_button = findViewById(R.id.start_button);
         stop_button = findViewById(R.id.stop_button);
-        Button mode_button = findViewById(R.id.mode_button);
+        Button hour_mode_button = findViewById(R.id.hour_mode_button);
+        Button minute_mode_button = findViewById(R.id.minute_mode_button);
+        Button second_mode_button = findViewById(R.id.second_mode_button);
         progress_bar = findViewById(R.id.progress);
         warning_sign = findViewById(R.id.warning_sign);
         background = findViewById(R.id.background);
@@ -352,33 +404,69 @@ public class MainActivity extends FragmentActivity
         // Set initial conditions
         background.setImageTintList(ColorStateList.valueOf(ContextCompat.getColor(getApplicationContext(), android.R.color.white)));
         alarm_player = new AudioOutput(this).prepare_alarm_player();
-        step_setting.setVisibility(View.GONE);
+        step_setting.setVisibility(View.VISIBLE);
         warning_sign.setVisibility(View.GONE);
         resetTimer();
 
         // Create on click event listeners
-        mode_button.setOnClickListener(view -> {
-            Log.i("Main", "Mode button pressed");
-            if (state == State.Done) {
+        hour_mode_button.setOnClickListener(view -> {
+            if (state == State.DONE) {
                 checkDoneWakeUp();
-            } else if (step_selection_mode) {
-                SharedPreferences.Editor editor = settings.edit();
-                editor.putLong("time_delta", time_delta);
-                editor.apply();
-                step_setting.setVisibility(View.GONE);
-                updateTimeDisplay(selected_time);
             } else {
-                step_setting.setVisibility(View.VISIBLE);
-                updateTimeDisplay(time_delta);
+                // Cycle modes
+                switch (step_selection_mode) {
+                    case HOURS:
+                        step_selection_mode = EditMode.SMART;
+                        break;
+                    default:
+                        step_selection_mode = EditMode.HOURS;
+                        break;
+                }
+                updateTextLabel();
             }
-            step_selection_mode = !step_selection_mode;
+        });
+
+        minute_mode_button.setOnClickListener(view -> {
+            if (state == State.DONE) {
+                checkDoneWakeUp();
+            } else {
+                // Cycle modes
+                switch (step_selection_mode) {
+                    case MINUTES:
+                        step_selection_mode = EditMode.SMART;
+                        break;
+                    default:
+                        step_selection_mode = EditMode.MINUTES;
+                        break;
+                }
+                updateTextLabel();
+            }
+        });
+
+        second_mode_button.setOnClickListener(view -> {
+            if (state == State.DONE) {
+                checkDoneWakeUp();
+            } else {
+                // Cycle modes
+                switch (step_selection_mode) {
+                    case SECONDS:
+                        step_selection_mode = EditMode.SMART;
+                        break;
+                    default:
+                        step_selection_mode = EditMode.SECONDS;
+                        break;
+                }
+                updateTextLabel();
+            }
         });
 
         stop_button.setOnClickListener(view -> {
             Log.i("Main", "Stop button pressed");
-            // we cancel the countdown timer execution when user click on the stop button
-            timer.cancel();
-            state = State.Ready;
+            if (state == State.RUNNING || state == State.PAUSED) {
+                // we cancel the countdown timer execution when user click on the stop button
+                timer.cancel();
+                state = State.READY;
+            }
             resetTimer();
         });
 

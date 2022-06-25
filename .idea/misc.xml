@@ -4,7 +4,8 @@
     <option name="filePathToZoomLevelMap">
       <map>
         <entry key="../../../../layout/custom_preview.xml" value="0.4192708333333333" />
-        <entry key="app/src/main/res/drawable/ic_baseline_cancel_24.xml" value="2.109375" />
+        <entry key="app/src/main/res/drawable/ic_baseline_cancel_24.xml" value="0.22" />
+        <entry key="app/src/main/res/drawable/ic_baseline_cancel_disabled_24.xml" value="0.227" />
         <entry key="app/src/main/res/drawable/ic_baseline_pause_circle_outline_24.xml" value="2.109375" />
         <entry key="app/src/main/res/drawable/ic_baseline_play_circle_outline_24.xml" value="2.109375" />
         <entry key="app/src/main/res/drawable/ic_baseline_warning_24.xml" value="0.2505" />
