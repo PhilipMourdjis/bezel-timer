@@ -274,10 +274,10 @@ public class MainActivity extends FragmentActivity
     private void updateTimeDisplay(long time) {
         // we update the counter during the execution
         double remainingSeconds = Math.ceil((double) time / one_second);
-        double remainingMinutes = Math.ceil(remainingSeconds / 60);
-        double hours = remainingMinutes / 60;
-        double minutes = remainingMinutes % 60;
-        double seconds = remainingSeconds % 60;
+        double remainingMinutes = Math.floor(remainingSeconds / 60);
+        long hours = (long) (remainingMinutes / 60);
+        long minutes = (long) (remainingMinutes % 60);
+        long seconds = (long) (remainingSeconds % 60);
 
         if (hours > 0.0) {
             time_re.setText(getString(R.string.time_remaining_hours, hours, minutes, seconds));
@@ -326,7 +326,7 @@ public class MainActivity extends FragmentActivity
                 (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         Intent ambientUpdateIntent = new Intent(AMBIENT_UPDATE_ACTION);
         ambientUpdatePendingIntent = PendingIntent.getBroadcast(
-                this, 0, ambientUpdateIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                this, 0, ambientUpdateIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         ambientUpdateBroadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
