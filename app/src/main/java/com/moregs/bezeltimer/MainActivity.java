@@ -273,8 +273,8 @@ public class MainActivity extends FragmentActivity
 
     private void updateTimeDisplay(long time) {
         // we update the counter during the execution
-        long remainingSeconds = time / one_second;
-        long remainingMinutes = remainingSeconds / 60;
+        double remainingSeconds = Math.ceil((double) time / one_second);
+        double remainingMinutes = remainingSeconds / 60;
         long hours = remainingMinutes / 60;
         long minutes = remainingMinutes % 60;
         long seconds = remainingSeconds % 60;
