@@ -274,12 +274,12 @@ public class MainActivity extends FragmentActivity
     private void updateTimeDisplay(long time) {
         // we update the counter during the execution
         double remainingSeconds = Math.ceil((double) time / one_second);
-        double remainingMinutes = remainingSeconds / 60;
-        long hours = remainingMinutes / 60;
-        long minutes = remainingMinutes % 60;
-        long seconds = remainingSeconds % 60;
+        double remainingMinutes = Math.ceil(remainingSeconds / 60);
+        double hours = remainingMinutes / 60;
+        double minutes = remainingMinutes % 60;
+        double seconds = remainingSeconds % 60;
 
-        if (hours > 0) {
+        if (hours > 0.0) {
             time_re.setText(getString(R.string.time_remaining_hours, hours, minutes, seconds));
         } else {
             time_re.setText(getString(R.string.time_remaining_minutes, minutes, seconds));
