@@ -3,7 +3,7 @@
     <color name="start_color">#00ff66</color>
     <color name="warning_color">#FFC107</color>
     <color name="stop_color">#ff6600</color>
-    <color name="progress_color">#00eeff</color>
-    <color name="ambient">#888888</color>
+    <color name="progress_color">#1ed7d7</color>
+    <color name="ambient">#eeeeee</color>
     <color name="transparent">#00000000</color>
 </resources>
