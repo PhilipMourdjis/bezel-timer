@@ -467,6 +467,7 @@ public class MainActivity extends FragmentActivity
                 timer.cancel();
                 state = State.READY;
             }
+            step_setting.setVisibility(View.VISIBLE);
             resetTimer();
         });
 
