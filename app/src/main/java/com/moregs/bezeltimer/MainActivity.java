@@ -37,39 +37,49 @@ import java.util.concurrent.Executor;
 public class MainActivity extends FragmentActivity
         implements AmbientModeSupport.AmbientCallbackProvider {
     // Action for updating the display in ambient mode, per our custom refresh cycle.
-    private static final String AMBIENT_UPDATE_ACTION = "com.your.package.action.AMBIENT_UPDATE";
-
-    private AlarmManager ambientUpdateAlarmManager;
-    private PendingIntent ambientUpdatePendingIntent;
-    private BroadcastReceiver ambientUpdateBroadcastReceiver;
-
-    private SharedPreferences settings;
-    Executor mainExecutor;
-    private CountDownTimer timer;
-    private ImageButton start_button;
-    private ImageButton stop_button;
-    private ImageView warning_sign;
-    private ImageView background;
-    private State state = State.READY;
-    private TextView time_re;
-    private TextView step_setting;
-    private RadialProgress progress_bar;
-    private EditMode step_selection_mode = EditMode.SMART;
+    private static final String AMBIENT_UPDATE_ACTION = "com.moregs.bezeltimer.action.AMBIENT_UPDATE";
     private static final long one_second = 1000;
     private static final long one_minute = 60 * one_second;
     private static final long one_hour = 60 * one_minute;
-    private long selected_time;
-    private long remaining_time;
+    
+    private EditMode step_selection_mode = EditMode.SMART;
     private MediaPlayer alarm_player = null;
+    private State state = State.READY;
+    
+    private AlarmManager ambientUpdateAlarmManager;
+    private BroadcastReceiver ambientUpdateBroadcastReceiver;
+    private CountDownTimer timer;
+    private ImageButton start_button;
+    private ImageButton stop_button;
+    private ImageView background;
+    private ImageView warning_sign;
+    private PendingIntent ambientUpdatePendingIntent;
+    private RadialProgress progress_bar;
+    private SharedPreferences settings;
+    private TextView step_setting;
+    private TextView time_re;
+    private long remaining_time;
+    private long selected_time;
+    
+    Executor mainExecutor;
 
     /* AMBIENT MODE SECTION */
 
+    /**
+     * Sets the class to use to handle ambient mode transitions
+     */
     @Override
     public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
+    /**
+     * Sets the behaviour to handle ambient mode transitions
+     */
     private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {
+        /**
+         * Hides large element and dims screen when entering ambient mode.
+         */
         @Override
         public void onEnterAmbient(Bundle ambientDetails) {
             // Handle entering ambient mode
@@ -82,6 +92,9 @@ public class MainActivity extends FragmentActivity
             refreshDisplayAndSetNextUpdate();
         }
 
+        /**
+         * Re-shows hidden elements and brightens screen on exiting ambient mode.
+         */
         @Override
         public void onExitAmbient() {
             // Handle exiting ambient mode
@@ -96,6 +109,9 @@ public class MainActivity extends FragmentActivity
             time_re.setVisibility(View.VISIBLE);
         }
 
+        /**
+         * Make sure countdown and progress are still shown in ambient mode.
+         */
         @Override
         public void onUpdateAmbient() {
             // Update the content
@@ -105,6 +121,11 @@ public class MainActivity extends FragmentActivity
         }
     }
 
+    /**
+     * During ambient mode, only update the display occasionally to preserve battery.
+     * These timers are imprecise so this applies a fudge factor based on the difference between the current time and 
+     * the time we expect it to be so that overall we stay close to the expected time.
+     */
     private void refreshDisplayAndSetNextUpdate() {
         if (state == State.DONE) {
             float max = 0.8f;
@@ -123,6 +144,9 @@ public class MainActivity extends FragmentActivity
         ambientUpdateAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMs, ambientUpdatePendingIntent);
     }
 
+    /**
+     * Handle resuming a paused timer, re-enable ambient behaviours and status updates
+     */
     @Override
     public void onResume() {
         super.onResume();
@@ -130,6 +154,9 @@ public class MainActivity extends FragmentActivity
         registerReceiver(ambientUpdateBroadcastReceiver, filter);
     }
 
+    /**
+     * Handle pausing (don't enter ambient mode and pause status updates)
+     */
     @Override
     public void onPause() {
         super.onPause();
@@ -139,6 +166,9 @@ public class MainActivity extends FragmentActivity
 
     /* PHYSICAL CONTROLS */
 
+    /**
+     * Detect, filter and handle changes to the position of the rotary encoder.
+     */
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
         checkDoneWakeUp();
@@ -169,6 +199,11 @@ public class MainActivity extends FragmentActivity
         return false;
     }
 
+    /**
+     * Handle rotating the bezel clockwise this increases the amount of time on the timer.
+     * In smart mode the amount adjusted for each step of the bezel depends on the current length of the timer.
+     * This behaviour is summarized in README.mc
+     */
     public void rotateClockwise() {
         switch (step_selection_mode) {
             case SMART:
@@ -198,6 +233,11 @@ public class MainActivity extends FragmentActivity
         }
     }
 
+    /**
+     * Handle rotating the bezel anti-clockwise this reduces the amount of time on the timer.
+     * In smart mode the amount adjusted for each step of the bezel depends on the current length of the timer.
+     * This behaviour is summarized in README.mc
+     */
     public void rotateCounterClockwise() {
         switch (step_selection_mode) {
             case SMART:
@@ -229,8 +269,11 @@ public class MainActivity extends FragmentActivity
 
     /* HELPER FUNCTIONS */
 
+    /**
+     * Start the timer and create an event to trigger the alarm when the timer ends.
+     */
     public void timerStart(long time) {
-        // startService(new Intent(this, BackgroundTimer.class));
+        
         timer = new CountDownTimer(time, 25) {
             @Override
             public void onTick(long millisUntilFinished) {
@@ -256,6 +299,9 @@ public class MainActivity extends FragmentActivity
         timer.start();
     }
 
+    /**
+     * Draw a warning sign at a given x,y position with r rotation.
+     */
     private void setWarningLocation(float x, float y, float r) {
         ConstraintLayout.LayoutParams params = (ConstraintLayout.LayoutParams) warning_sign.getLayoutParams();
         params.horizontalBias = x;
@@ -264,6 +310,10 @@ public class MainActivity extends FragmentActivity
         warning_sign.setRotation(r);
     }
 
+    /**
+     * If the alarm has gone off (state == DONE) and the watch is waking up.
+     * Reset to the timer selection (state == READY) state
+     */
     private void checkDoneWakeUp() {
         if (state == State.DONE) {
             warning_sign.setVisibility(View.GONE);
@@ -275,6 +325,9 @@ public class MainActivity extends FragmentActivity
         }
     }
 
+    /**
+     * Handle behaviour of play/pause button being pressed dependent on state.
+     */
     private void play_pause() {
         stop_button.setImageResource(R.drawable.ic_baseline_cancel_24);
         if (state == State.PAUSED) {
@@ -304,6 +357,9 @@ public class MainActivity extends FragmentActivity
         }
     }
 
+    /**
+     * Updates remaining time display including a small movement to reduce chance of screen burn in.
+     */
     private void updateTimeDisplay(long time) {
         // we update the counter during the execution
         double remainingSeconds = Math.ceil((double) time / one_second);
@@ -327,6 +383,9 @@ public class MainActivity extends FragmentActivity
         time_re.setRotation(end_angle);
     }
 
+    /**
+     * Update text display based on current edit mode.
+     */
     private void updateTextLabel() {
         switch (step_selection_mode) {
             case SMART:
@@ -344,6 +403,9 @@ public class MainActivity extends FragmentActivity
         }
     }
 
+    /**
+     * Update the progress bar, the maximum changes based on the range the timer is operating over.
+     */
     private void setProgress(long time) {
         long max = one_minute;
         if (time > one_hour) {
@@ -355,6 +417,9 @@ public class MainActivity extends FragmentActivity
         progress_bar.setProgress(time);
     }
 
+    /**
+     * Called to reset the timer's state after cancelling or ending
+     */
     protected void resetTimer() {
         setProgress(selected_time);
         stop_button.setImageResource(R.drawable.ic_baseline_cancel_disabled_24);
@@ -363,6 +428,9 @@ public class MainActivity extends FragmentActivity
         updateTextLabel();
     }
 
+    /**
+     * Called on app start to set up event listeners and create all on screen elements.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
